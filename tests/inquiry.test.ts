@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { formatInquiryEmail, formatInquiryHtml, formatInquirySubject, inquirySchema } from "../src/lib/inquiry";
+import { buildFormSubmitPayload, getFormSubmitEndpoint, submitInquiryToFormSubmit } from "../src/lib/formsubmit";
 
 const validInquiry = {
   name: "Ada Lovelace",
@@ -58,4 +59,37 @@ test("HTML email escapes visitor content", () => {
   const html = formatInquiryHtml(parsed, submittedAt);
   assert.match(html, /&lt;script&gt;alert\(&#39;x&#39;\)&lt;\/script&gt;/);
   assert.doesNotMatch(html, /<script>/);
+});
+
+test("FormSubmit payload includes every inquiry field and reply metadata", () => {
+  const parsed = inquirySchema.parse({ ...validInquiry, submissionId: "8f7c2a1e-6c87-4d0a-8b52-1e4f2e8a8b1a" });
+  const payload = buildFormSubmitPayload(parsed, submittedAt, "https://aniruddha-portfolio-wheat.vercel.app/contact");
+  assert.equal(getFormSubmitEndpoint("aniruddha.2005@outlook.com"), "https://formsubmit.co/ajax/aniruddha.2005%40outlook.com");
+  assert.equal(payload._subject, "New Project Inquiry | Custom Software | Analytical Engines");
+  assert.equal(payload._replyto, "ada@example.com");
+  assert.equal(payload.description, parsed.description);
+  assert.equal(payload.consent, "Confirmed");
+  assert.equal(payload.submittedAt, "2026-11-14T10:30:00.000Z (UTC)");
+  assert.equal(payload._url, "https://aniruddha-portfolio-wheat.vercel.app/contact");
+});
+
+test("FormSubmit reports success only when the provider confirms acceptance", async () => {
+  let requestBody = "";
+  const parsed = inquirySchema.parse(validInquiry);
+  const result = await submitInquiryToFormSubmit(parsed, "aniruddha.2005@outlook.com", async (input, init) => {
+    requestBody = JSON.stringify({ input: String(input), body: init?.body });
+    return new Response(JSON.stringify({ success: true, message: "Form submitted successfully; activation confirmed" }), { status: 200 });
+  }, submittedAt, "https://aniruddha-portfolio-wheat.vercel.app/contact");
+  assert.deepEqual(result, { ok: true, activationRequired: true });
+  assert.match(requestBody, /Analytical Engines/);
+});
+
+test("FormSubmit provider failures are surfaced without claiming success", async () => {
+  const parsed = inquirySchema.parse(validInquiry);
+  const rejected = await submitInquiryToFormSubmit(parsed, "aniruddha.2005@outlook.com", async () => new Response(JSON.stringify({ success: false, message: "Unable to submit form" }), { status: 200 }), submittedAt, "https://aniruddha-portfolio-wheat.vercel.app/contact");
+  const unavailable = await submitInquiryToFormSubmit(parsed, "aniruddha.2005@outlook.com", async () => new Response("upstream failure", { status: 502 }), submittedAt, "https://aniruddha-portfolio-wheat.vercel.app/contact");
+  const offline = await submitInquiryToFormSubmit(parsed, "aniruddha.2005@outlook.com", async () => { throw new Error("network unavailable"); }, submittedAt, "https://aniruddha-portfolio-wheat.vercel.app/contact");
+  assert.deepEqual(rejected, { ok: false, reason: "provider" });
+  assert.deepEqual(unavailable, { ok: false, reason: "provider" });
+  assert.deepEqual(offline, { ok: false, reason: "network" });
 });

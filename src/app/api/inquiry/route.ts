@@ -1,8 +1,8 @@
 import { createHash } from "node:crypto";
 import { NextResponse } from "next/server";
-import { Resend } from "resend";
-import { formatInquiryEmail, formatInquiryHtml, formatInquirySubject, inquiryMaxBodyBytes, inquirySchema } from "@/lib/inquiry";
+import { inquiryMaxBodyBytes, inquirySchema } from "@/lib/inquiry";
 import { getContactConfiguration } from "@/lib/contact";
+import { submitInquiryToFormSubmit } from "@/lib/formsubmit";
 
 export const runtime = "nodejs";
 
@@ -54,8 +54,8 @@ export async function POST(request: Request) {
   if (parsed.data.websiteHoneypot) return NextResponse.json({ error: "Please try again." }, { status: 400 });
 
   const configuration = getContactConfiguration();
-  if (!configuration.isConfigured || !configuration.apiKey || !configuration.to || !configuration.from) {
-    return NextResponse.json({ error: "Contact delivery is not configured yet. Please try again later." }, { status: 503 });
+  if (!configuration.isConfigured) {
+    return NextResponse.json({ error: "Contact delivery is not configured correctly yet. Please try again later." }, { status: 503 });
   }
 
   const fingerprint = createHash("sha256").update([
@@ -65,29 +65,18 @@ export async function POST(request: Request) {
     parsed.data.service,
     parsed.data.description,
   ].join("\u001f")).digest("hex");
-  const idempotencyKey = parsed.data.submissionId || `inquiry/${fingerprint}`;
   const recentSubmission = recentSubmissions.get(fingerprint);
   if (recentSubmission && recentSubmission > now) return NextResponse.json({ error: "This inquiry has already been submitted recently. Please wait before sending it again." }, { status: 409 });
   recentSubmissions.set(fingerprint, now + duplicateWindowMs);
 
-  try {
-    const submittedAt = new Date();
-    const resend = new Resend(configuration.apiKey);
-    const result = await resend.emails.send({
-      from: configuration.from,
-      to: configuration.to,
-      replyTo: parsed.data.email,
-      subject: formatInquirySubject(parsed.data),
-      html: formatInquiryHtml(parsed.data, submittedAt),
-      text: formatInquiryEmail(parsed.data, submittedAt),
-    }, { idempotencyKey });
-    if (result.error) {
-      recentSubmissions.delete(fingerprint);
-      return NextResponse.json({ error: "The email provider could not accept this inquiry. Please try again later." }, { status: 502 });
-    }
-    return NextResponse.json({ ok: true, message: "Thank you. Your inquiry has been received. I'll personally review your requirements and get back to you." });
-  } catch {
+  const providerResult = await submitInquiryToFormSubmit(parsed.data, configuration.recipientEmail, fetch, new Date(), configuration.siteUrl);
+  if (!providerResult.ok) {
     recentSubmissions.delete(fingerprint);
-    return NextResponse.json({ error: "Something went wrong while sending the inquiry. Please try again later." }, { status: 502 });
+    return NextResponse.json({ error: providerResult.reason === "provider" ? "The email provider could not accept this inquiry. Please try again later." : "The inquiry could not reach the email provider. Please try again later." }, { status: 502 });
   }
+
+  const message = providerResult.activationRequired
+    ? "Your inquiry was accepted. Please confirm the FormSubmit activation email in the recipient inbox before future inquiries can be delivered."
+    : "Your inquiry was accepted by the email provider. If this is the first submission, please confirm FormSubmit's activation email in the recipient inbox.";
+  return NextResponse.json({ ok: true, message });
 }

@@ -26,12 +26,12 @@ export function InquiryForm({ isConfigured }: { isConfigured: boolean }) {
       if (!response.ok) { setState({ status: "error", message: result.error || "Please check the form and try again.", field: result.field }); return; }
       form.reset();
       setContactMethod("Email");
-      setState({ status: "success", message: "Thank you. Your inquiry has been received. I'll personally review your requirements and get back to you." });
+      setState({ status: "success", message: result.message || "Your inquiry was accepted by the email provider. If this is the first submission, please confirm the provider activation email in the recipient inbox." });
     } catch { setState({ status: "error", message: "The inquiry could not be sent. Please email me directly or try again later." }); }
   }
 
   return <form onSubmit={handleSubmit} className="space-y-7" noValidate>
-    {!isConfigured && <div role="status" className="border border-champagne/50 bg-champagne/10 p-5 text-sm leading-6 text-ink"><strong>Email delivery is not configured on this environment.</strong> The form will remain unavailable until the server has a Resend API key, recipient address and verified sender. You can still use the direct email or WhatsApp options shown beside this form.</div>}
+    {!isConfigured && <div role="status" className="border border-champagne/50 bg-champagne/10 p-5 text-sm leading-6 text-ink"><strong>Email delivery is not configured correctly on this environment.</strong> The form will remain unavailable until a valid FormSubmit recipient is available. You can still use the direct email or WhatsApp options shown beside this form.</div>}
     {state.status === "success" && <div role="status" className="border border-[#758c73] bg-[#758c73]/10 p-5 text-sm leading-6 text-ink">{state.message}</div>}
     {state.status === "error" && <div role="alert" className="border border-[#9c5f50] bg-[#9c5f50]/10 p-5 text-sm leading-6 text-ink"><p>{state.message}</p><p className="mt-3">You can also <a href="mailto:aniruddha.2005@outlook.com" className="font-semibold underline decoration-[#9c5f50] underline-offset-4">email me directly</a> or <a href="https://wa.me/917439573538" target="_blank" rel="noopener noreferrer" className="font-semibold underline decoration-[#9c5f50] underline-offset-4">message me on WhatsApp</a>.</p></div>}
     <div className="grid gap-7 sm:grid-cols-2"><Field label="Full name" name="name" required autoComplete="name" error={state.field === "name" ? state.message : undefined} /><Field label="Business email" name="email" type="email" required autoComplete="email" error={state.field === "email" ? state.message : undefined} /><Field label="Company or business name" name="company" autoComplete="organization" /><Field label="Country" name="country" required autoComplete="country-name" error={state.field === "country" ? state.message : undefined} /></div>

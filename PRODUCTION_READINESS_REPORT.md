@@ -12,8 +12,8 @@
 - Fixed the homepage nested-anchor issue by separating the project image/title links from the standalone MoreLink.
 - Added page metadata, canonical URLs, Open Graph/Twitter defaults, Person JSON-LD, sitemap and robots metadata.
 - Updated the inquiry form to match the requested fields. There is no budget field.
-- Added conditional WhatsApp number validation, honeypot protection, request-size checks, rate limiting, duplicate submission protection, server-side Zod validation and Resend delivery.
-- Kept the form disabled when email configuration is absent so inquiries are not presented as successfully sent when they cannot be delivered.
+- Added conditional WhatsApp number validation, honeypot protection, request-size checks, rate limiting, duplicate submission protection, server-side Zod validation and FormSubmit delivery.
+- Kept the form disabled when the FormSubmit recipient configuration is invalid so inquiries are not presented as successfully sent when they cannot be submitted.
 - Updated privacy copy to describe the actual form data and avoid unsupported retention, analytics or compliance claims.
 
 ## 2. Changed files
@@ -59,14 +59,14 @@
 The client form posts JSON to `POST /api/inquiry`. The route:
 
 1. Rejects oversized request bodies.
-2. Returns `503` when Resend configuration is missing.
+2. Returns `503` when the FormSubmit recipient configuration is invalid.
 3. Applies an in-memory five-attempt-per-hour IP-window limit.
 4. Parses and validates input with Zod.
 5. Rejects a filled honeypot field.
 6. Requires a WhatsApp number when WhatsApp is selected.
 7. Rejects a repeated submission identifier for one hour.
-8. Sends a server-side text email using Resend, with the visitor email as `replyTo`.
-9. Returns success only after Resend accepts the message.
+8. Sends every submitted field server-side to FormSubmit's documented AJAX endpoint, with a meaningful subject and the visitor email as `Reply-To`.
+9. Returns success only after FormSubmit returns a successful provider response; first-use activation is disclosed to the visitor.
 
 No inquiry database or automatic meeting booking is implemented. Provider acceptance is not treated as proof of inbox delivery.
 
@@ -74,42 +74,35 @@ No inquiry database or automatic meeting booking is implemented. Provider accept
 
 ```text
 NEXT_PUBLIC_SITE_URL=http://localhost:3000
-RESEND_API_KEY=<server-only-key>
-CONTACT_TO_EMAIL=aniruddha.2005@outlook.com
-CONTACT_FROM_EMAIL=Portfolio inquiries <noreply@your-verified-domain.com>
+FORM_SUBMIT_RECIPIENT_EMAIL=aniruddha.2005@outlook.com
+FORM_SUBMIT_FORM_URL=https://aniruddha-portfolio-wheat.vercel.app/contact
 ```
 
-`NEXT_PUBLIC_SITE_URL` must be replaced with the actual verified Vercel URL after deployment. The Resend API key must remain server-only.
+`NEXT_PUBLIC_SITE_URL` must be replaced with the actual Vercel URL after deployment. The recipient override is not a secret and should not be used for arbitrary user input.
 
 ## 6. Email delivery configuration
 
-1. Create or use a Resend account.
-2. Verify the sending domain in Resend.
-3. Create a Resend API key.
-4. Copy `.env.example` to `.env.local` for local testing.
-5. Set `RESEND_API_KEY` to the server-only key.
-6. Set `CONTACT_TO_EMAIL` to `aniruddha.2005@outlook.com`.
-7. Set `CONTACT_FROM_EMAIL` to a sender address on the verified Resend domain.
-8. Restart the Next.js server.
-9. Submit a real test inquiry and confirm receipt at the destination inbox.
-
-No credentials were present in this workspace, so email delivery was not exercised and the local API intentionally returned `503`.
+1. Copy `.env.example` to `.env.local` for local testing only if overriding the default recipient.
+2. Restart the Next.js server.
+3. Submit one real test inquiry to FormSubmit.
+4. Confirm the FormSubmit activation email in `aniruddha.2005@outlook.com` if this is the first submission.
+5. Submit a second real test inquiry and confirm receipt in the Outlook inbox.
 
 ## 7. Actual test results
 
-- `npm test`: PASS — 5 tests passed.
+- `npm test`: PASS — 10 tests passed, including FormSubmit payload, provider rejection and confirmed-success cases.
 - `npx tsc --noEmit`: PASS.
 - `npm run lint`: PASS — no warnings or errors. Next reports that `next lint` is deprecated for a future Next.js version; the existing script still works.
 - `npm run build`: PASS — all 18 routes generated successfully, including five case-study paths, sitemap and robots.
 - `npm audit`: PASS — 0 vulnerabilities.
 - Live HTTP smoke test: PASS — all required pages returned HTTP 200.
-- Live API configuration check: PASS — `POST /api/inquiry` returned the expected HTTP 503 without Resend credentials.
+- Live provider test: PASS — first submission returned FormSubmit's activation gate; after activation, the second submission returned `success: true`.
+- Outlook inbox receipt: PENDING manual confirmation because the available Windows UI bridge could not expose the Outlook message body safely.
 - Browser automation/mobile visual QA: NOT RUN — the computer-use browser host was unavailable in this environment. Responsive CSS and mobile navigation were validated by code/build review, not by an interactive browser session.
 
 ## 8. Remaining blockers
 
-- Add valid Resend credentials and a verified sender domain before enabling real inquiry delivery.
-- Perform a real inbox delivery test after configuring Resend.
+- Confirm the second FormSubmit delivery-test email is visible in the recipient Outlook inbox.
 - Run interactive desktop/mobile browser QA once a browser host is available.
 - The in-memory rate limiter and duplicate-submission cache are process-local. For a multi-instance or serverless deployment, use an external rate-limit/idempotency store if abuse volume requires it.
 - The production canonical URL is intentionally not invented; configure the real Vercel URL before deployment.
@@ -119,10 +112,10 @@ No credentials were present in this workspace, so email delivery was not exercis
 1. Import this existing repository into Vercel.
 2. Keep the framework as Next.js and use the repository root as the project root.
 3. Add `NEXT_PUBLIC_SITE_URL` with the actual Vercel production URL.
-4. Add `RESEND_API_KEY`, `CONTACT_TO_EMAIL`, and `CONTACT_FROM_EMAIL` as server environment variables for Preview and Production as appropriate.
+4. Add `FORM_SUBMIT_RECIPIENT_EMAIL` only if the default recipient needs to be overridden.
 5. Deploy from Vercel when ready.
 6. Confirm `/`, `/work/optinex`, `/contact`, `/sitemap.xml` and `/robots.txt` after deployment.
-7. Submit a real inquiry only after confirming Resend delivery.
+7. Submit a real inquiry only after confirming FormSubmit activation and inbox delivery.
 
 This task did not push code or deploy to Vercel.
 

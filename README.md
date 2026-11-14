@@ -1,6 +1,6 @@
 # Aniruddha Pathak — engineering portfolio
 
-Premium portfolio site for an independent software and applied AI engineer. Built with Next.js App Router, TypeScript strict mode, Tailwind CSS, Zod, and Resend.
+Premium portfolio site for an independent software and applied AI engineer. Built with Next.js App Router, TypeScript strict mode, Tailwind CSS, Zod, and FormSubmit.
 
 ## Local setup
 
@@ -16,17 +16,16 @@ The site runs at `http://localhost:3000`.
 
 ## Contact configuration
 
-The contact form posts to `POST /api/inquiry`. The endpoint validates payloads server-side with Zod, rejects a hidden honeypot field, limits body size and only returns success after Resend accepts the email.
+The contact form posts to `POST /api/inquiry`. The endpoint validates payloads server-side with Zod, rejects a hidden honeypot field, limits body size and only returns success after FormSubmit confirms acceptance.
 
-Set all three values in `.env.local` to enable delivery:
+Set the optional recipient override in `.env.local` when needed:
 
-- `RESEND_API_KEY`: Resend API key, server-only.
-- `CONTACT_TO_EMAIL`: inbox that receives inquiries.
-- `CONTACT_FROM_EMAIL`: a sender on a Resend-verified domain.
+- `FORM_SUBMIT_RECIPIENT_EMAIL`: the recipient inbox. The project defaults to `aniruddha.2005@outlook.com`.
+- `FORM_SUBMIT_FORM_URL`: the public form URL sent to FormSubmit. It defaults to the live `/contact` URL.
 
-When any value is missing, the UI shows an honest configuration-unavailable state and submission is disabled. No inquiry is silently discarded.
+If the recipient value is invalid, the UI shows an honest configuration-unavailable state and submission is disabled. No inquiry is silently discarded.
 
-Provider acceptance means Resend accepted the request for processing; it is not proof the message reached an inbox.
+Provider acceptance means FormSubmit accepted the request for processing; it is not proof the message reached an inbox. On first use, FormSubmit sends an activation email to the recipient that must be confirmed.
 
 ## Verification
 
@@ -41,4 +40,4 @@ npm run build
 
 This repository is local-only until you choose a host. Set `NEXT_PUBLIC_SITE_URL` to the canonical production URL before deployment so metadata, sitemap, robots, and JSON-LD resolve correctly. Keep email secrets in your hosting provider's environment settings and never commit `.env.local`.
 
-No database is required: inquiries are delivered by Resend and are not persisted by this app.
+No database is required: inquiries are forwarded by FormSubmit and are not persisted by this app.

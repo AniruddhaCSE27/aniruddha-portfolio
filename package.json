@@ -7,10 +7,9 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "test": "tsc --outDir .test-dist --module commonjs --moduleResolution node --target ES2022 --esModuleInterop --skipLibCheck tests/inquiry.test.ts src/lib/inquiry.ts src/lib/site.ts && node .test-dist/tests/inquiry.test.js"
+    "test": "tsc --outDir .test-dist --module commonjs --moduleResolution node --target ES2022 --esModuleInterop --skipLibCheck tests/inquiry.test.ts src/lib/inquiry.ts src/lib/formsubmit.ts src/lib/site.ts && node .test-dist/tests/inquiry.test.js"
   },
   "dependencies": {
-    "resend": "^4.0.1",
     "lucide-react": "^0.468.0",
     "next": "^15.5.4",
     "react": "^19.1.0",
