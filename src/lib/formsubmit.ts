@@ -45,7 +45,7 @@ export async function submitInquiryToFormSubmit(
   try {
     const response = await fetchImpl(getFormSubmitEndpoint(recipientEmail), {
       method: "POST",
-      headers: { "Content-Type": "application/json", Accept: "application/json" },
+      headers: { "Content-Type": "application/json", Accept: "application/json", Referer: siteUrl },
       body: JSON.stringify(buildFormSubmitPayload(payload, submittedAt, siteUrl)),
     });
     let result: FormSubmitResponse = {};
